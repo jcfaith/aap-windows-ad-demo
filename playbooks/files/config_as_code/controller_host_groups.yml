@@ -1,0 +1,13 @@
+---
+controller_groups:
+  - name: ad_domain_controllers
+    inventory: AD Demo Inventory
+    hosts:
+      - ad-demo-dc
+  - name: mecm_site_server
+    description: >-
+      Empty by design - no MECM/SCCM site server in this demo environment.
+      Add a host here and set mecm_site_code/mecm_provider_host/mecm_device_name
+      to wire in the "MECM - Trigger Policy Refresh" job template. See README.
+    inventory: AD Demo Inventory
+    hosts: []

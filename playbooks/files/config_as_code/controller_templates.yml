@@ -1,0 +1,47 @@
+---
+controller_templates:
+  - name: "Bootstrap - AD Demo DC"
+    organization: Default
+    project: aap-windows-ad-demo
+    playbook: playbooks/bootstrap_dc.yml
+    inventory: AD Demo Inventory
+    credentials:
+      - "AD Demo - Windows DC"
+    job_type: run
+    ask_variables_on_launch: true
+    become_enabled: false
+    description: >-
+      One-time setup, not part of the live demo: promotes the Windows Server
+      to a new AD DS forest, creates a demo user, and genuinely locks that
+      account out so there is something real to unlock live. Requires
+      ad_domain_name, ad_domain_netbios_name, ad_safe_mode_password,
+      ad_demo_user_sam, ad_demo_user_firstname, ad_demo_user_surname,
+      ad_demo_user_password as extra vars at launch (not stored in git).
+
+  - name: "Unlock AD User Account"
+    organization: Default
+    project: aap-windows-ad-demo
+    playbook: playbooks/unlock_user.yml
+    inventory: AD Demo Inventory
+    credentials:
+      - "AD Demo - Windows DC"
+    job_type: run
+    ask_variables_on_launch: true
+    become_enabled: false
+    description: >-
+      Unlocks a locked-out AD user account. Expects ad_username as an extra
+      var - normally supplied by the "AD Self-Service - Unlock Account"
+      workflow's survey, one node after manager approval.
+
+  - name: "MECM - Trigger Policy Refresh (optional)"
+    organization: Default
+    project: aap-windows-ad-demo
+    playbook: playbooks/mecm_policy_refresh.yml
+    inventory: AD Demo Inventory
+    job_type: run
+    ask_variables_on_launch: true
+    become_enabled: false
+    description: >-
+      Not wired into the live workflow - no MECM/SCCM site server exists in
+      this demo environment. Real, certified microsoft.mecm code, ready to
+      point at a live site. See README "Going live with MECM".

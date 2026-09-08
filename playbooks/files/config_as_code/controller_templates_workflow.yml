@@ -1,0 +1,42 @@
+---
+controller_workflows:
+  - name: "AD Self-Service - Unlock Account"
+    organization: Default
+    description: >-
+      Self-service demo: an AD engineer (or their manager, or a helpdesk
+      requester) submits a locked-out username, a manager approves it, and
+      AAP unlocks the account - with a full audit trail of who requested it,
+      who approved it, and what ran.
+    survey_enabled: true
+    survey_spec:
+      name: ""
+      description: ""
+      spec:
+        - question_name: "AD Username to unlock"
+          question_description: "The sAMAccountName of the locked-out account, e.g. jsmith"
+          required: true
+          type: text
+          variable: ad_username
+          min: 0
+          max: 128
+          default: ""
+          new_question: true
+    ask_variables_on_launch: false
+    allow_simultaneous: true
+    workflow_nodes:
+      - identifier: node101
+        approval_node:
+          name: "Manager approval"
+          description: "Approve unlocking this AD account"
+          timeout: 3600
+        success_nodes:
+          - node201
+        failure_nodes: []
+        always_nodes: []
+
+      - identifier: node201
+        unified_job_template: "Unlock AD User Account"
+        organization: Default
+        success_nodes: []
+        failure_nodes: []
+        always_nodes: []

@@ -1,0 +1,62 @@
+---
+# One-time environment setup. Not part of the demo the AD engineer sees -
+# this builds the lab: promotes the domain controller, creates a demo user,
+# and genuinely locks that account out (via real failed logons against a
+# lowered lockout threshold) so there's something real to unlock live.
+#
+# Run once via the "Bootstrap - AD Demo DC" job template after the EC2
+# instance is up and WinRM is reachable.
+- name: Promote Windows Server to a new AD DS forest
+  hosts: ad_domain_controllers
+  gather_facts: false
+
+  tasks:
+    - name: Promote server to a new AD DS forest
+      microsoft.ad.domain:
+        dns_domain_name: "{{ ad_domain_name }}"
+        domain_netbios_name: "{{ ad_domain_netbios_name }}"
+        safe_mode_password: "{{ ad_safe_mode_password }}"
+        reboot: true
+      register: domain_promo
+
+- name: Create the demo user and lock the account out for real
+  hosts: ad_domain_controllers
+  gather_facts: false
+
+  tasks:
+    - name: Wait for WinRM to come back after the domain promotion reboot
+      ansible.builtin.wait_for_connection:
+        delay: 30
+        timeout: 600
+
+    - name: Create the demo AD user
+      microsoft.ad.user:
+        name: "{{ ad_demo_user_sam }}"
+        firstname: "{{ ad_demo_user_firstname }}"
+        surname: "{{ ad_demo_user_surname }}"
+        upn: "{{ ad_demo_user_sam }}@{{ ad_domain_name }}"
+        password: "{{ ad_demo_user_password }}"
+        password_never_expires: true
+        enabled: true
+        state: present
+
+    - name: Lower the domain lockout threshold so a few bad logons trigger a real lockout
+      ansible.windows.win_command: net accounts /lockoutthreshold:3 /domain
+
+    - name: Trigger a genuine account lockout with deliberate failed logons
+      ansible.windows.win_command: >-
+        net use \\localhost\ipc$ /user:{{ ad_domain_netbios_name }}\{{ ad_demo_user_sam }} wrong-password-{{ item }}
+      loop: "{{ range(1, 5) | list }}"
+      register: bad_logon_attempts
+      failed_when: false
+
+    - name: Confirm the account is now locked
+      microsoft.ad.object_info:
+        filter: "sAMAccountName -eq '{{ ad_demo_user_sam }}'"
+        properties:
+          - LockedOut
+      register: locked_check
+
+    - name: Report lockout status
+      ansible.builtin.debug:
+        msg: "{{ ad_demo_user_sam }} LockedOut = {{ locked_check.objects[0].LockedOut }}"

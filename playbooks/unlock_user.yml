@@ -1,0 +1,35 @@
+---
+- name: Unlock an Active Directory user account
+  hosts: ad_domain_controllers
+  gather_facts: false
+
+  tasks:
+    - name: Assert that a username was supplied
+      ansible.builtin.assert:
+        that:
+          - ad_username is defined
+          - ad_username | trim != ''
+        fail_msg: "ad_username is required - this should come from the survey."
+
+    - name: Look up the account before unlocking (fails loudly if it doesn't exist)
+      microsoft.ad.object_info:
+        filter: "sAMAccountName -eq '{{ ad_username }}'"
+      register: account_before
+
+    - name: Fail if no account was found for that username
+      ansible.builtin.assert:
+        that:
+          - account_before.objects | length == 1
+        fail_msg: "No AD account found with sAMAccountName '{{ ad_username }}'."
+
+    - name: Unlock the account
+      microsoft.ad.user:
+        identity: "{{ ad_username }}"
+        account_locked: false
+      register: unlock_result
+
+    - name: Report result
+      ansible.builtin.debug:
+        msg: >-
+          {{ ad_username }} was
+          {{ 'unlocked' if unlock_result.changed else 'already unlocked (no change needed)' }}.

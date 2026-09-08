@@ -1,0 +1,41 @@
+---
+# Optional workflow node. Not wired live in this demo: no MECM/SCCM site
+# server exists in this environment. Included so the code is real and
+# ready to point at a live site - see README "Going live with MECM".
+#
+# Typical follow-on to an AD unlock: trigger a machine policy refresh on
+# the user's device so any policy changes apply immediately, without
+# waiting for the client's normal polling interval.
+#
+# Runs the assert on localhost first so a missing MECM site gives a clear
+# message instead of an "no hosts matched" error. The actual module has to
+# run on the MECM Primary Site Server itself (it drives the Configuration
+# Manager PowerShell module locally there), so it's delegated there.
+- name: Trigger MECM machine policy refresh for the unlocked user's device
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Refuse to run unless a real MECM site is configured
+      ansible.builtin.assert:
+        that:
+          - mecm_site_code is defined
+          - mecm_provider_host is defined
+          - mecm_device_name is defined
+        fail_msg: >-
+          mecm_site_code / mecm_provider_host / mecm_device_name are not
+          set. This node is a placeholder until you point it at a real
+          MECM site server - see README "Going live with MECM".
+
+    - name: Ensure the PS drive exists for the site
+      microsoft.mecm.site_ps_drive:
+        site_code: "{{ mecm_site_code }}"
+      delegate_to: "{{ mecm_provider_host }}"
+
+    - name: Request machine policy refresh on the device
+      microsoft.mecm.client_action:
+        site_code: "{{ mecm_site_code }}"
+        device_name: "{{ mecm_device_name }}"
+        action: RequestMachinePolicyNow
+      delegate_to: "{{ mecm_provider_host }}"

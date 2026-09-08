@@ -1,0 +1,10 @@
+---
+controller_projects:
+  - name: aap-windows-ad-demo
+    organization: Default
+    scm_type: git
+    scm_url: https://github.com/jcfaith/aap-windows-ad-demo.git
+    scm_branch: main
+    scm_update_on_launch: true
+    scm_clean: true
+    scm_delete_on_update: false

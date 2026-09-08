@@ -25,6 +25,7 @@ controller_workflows:
     allow_simultaneous: true
     workflow_nodes:
       - identifier: node101
+        unified_job_template: null
         approval_node:
           name: "Manager approval"
           description: "Approve unlocking this AD account"

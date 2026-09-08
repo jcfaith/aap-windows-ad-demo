@@ -1,89 +1,112 @@
 # AD Self-Service Demo: Unlock Account, with Approval
 
-A reusable Ansible Automation Platform demo built for **Senior Active Directory
-engineers with zero AAP experience**. It answers one question in about five
-minutes: *"what does AAP actually give me that I don't already have?"*
+**A 5-minute, hands-on look at what Ansible Automation Platform (AAP) does
+for Active Directory operations that a script or a runbook doesn't.**
 
-## The story
+No AAP experience required to follow along. If you can run PowerShell
+against a domain controller, you can replicate this in an afternoon.
 
-A user calls the helpdesk: "I'm locked out." Today that's a ticket, a queue,
-and someone with domain admin rights typing `Unlock-ADAccount` by hand.
+---
 
-With this demo:
+## The problem this solves
 
-1. Someone (helpdesk, the user's manager, or the AD engineer themselves)
-   opens the **"AD Self-Service - Unlock Account"** workflow in AAP and
-   types in the locked-out username.
-2. The engineer's manager gets an **approval request** - nothing runs until
-   they click Approve.
-3. AAP unlocks the account using the **official, Red Hat-certified
-   `microsoft.ad` collection** - the same module family used for
-   production AD management, not a toy script.
-4. Every step - who asked, who approved, what ran, what changed - is in the
-   AAP job history. No ticket, no shared credentials, no "who unlocked
-   this and why" mystery three weeks later.
+A user calls the helpdesk: "I'm locked out."
 
-The value pitch for this audience: **you keep control (approval, RBAC,
-credential vaulting), you get delegation (a manager or helpdesk can trigger
-it without a domain admin password), and you get an audit trail for free.**
+Today, that's a ticket, a queue, and eventually someone with Domain Admin
+rights typing `Unlock-ADAccount` by hand - or a shared credential sitting in
+a helpdesk runbook that nobody's rotated since 2019.
 
-## What's actually in here
+**With this demo:**
 
-- `microsoft.ad` (certified) - unlocks the account (`microsoft.ad.user`,
-  `account_locked: false`)
-- `ansible.windows` (certified) - WinRM connectivity
-- `microsoft.mecm` (certified) - included and wired in as a **real,
-  ready-to-go** job template (`MECM - Trigger Policy Refresh`) for shops
-  that also run Microsoft Endpoint Configuration Manager. Not live in this
-  demo environment (see below) but not a stub either - it's the real
-  module against the real argument spec.
-- Everything is config-as-code (`playbooks/files/config_as_code/`), applied
-  by one job template, using the same `infra.aap_configuration` pattern as
-  the rest of this org's AAP demos.
-- All collections resolve through the **Red Hat Automation Hub**
-  certified/validated content endpoints already configured on this
-  controller's Default organization - not the public community Galaxy.
+1. Someone (helpdesk, the user's manager, or you) opens a form in AAP and
+   types in the locked-out username. That's it - no PowerShell, no RDP,
+   no domain admin login.
+2. The user's manager gets an **approval request**. Nothing runs until they
+   click Approve.
+3. AAP unlocks the account using `microsoft.ad`, the **official
+   Red Hat/Microsoft certified Ansible collection** for Active Directory -
+   the same module family you'd use for production AD management, not a
+   toy script cobbled together for a demo.
+4. Every step - who asked, who approved, what actually ran, what changed -
+   lands in AAP's job history automatically. No shared credentials, no
+   "who unlocked this and why" mystery three weeks later.
 
-## Repo layout
+## Why this matters to you
 
-```
-playbooks/
-  main.yml                 Setup - AD Demo - CAC: applies everything below
-  bootstrap_dc.yml         One-time lab setup (see "Setting this up")
-  unlock_user.yml          The actual demo payload
-  mecm_policy_refresh.yml  Optional MECM node (see "Going live with MECM")
-  files/config_as_code/    Inventory, hosts, groups, project, job templates,
-                            workflow + survey + approval definitions
-collections/requirements.yml
-```
+You already know how to unlock an AD account. That was never the hard part.
+The hard part is everything *around* it:
 
-## Setting this up
+| Today | With AAP |
+|---|---|
+| Whoever fixes it needs Domain Admin rights, or a shared service account | Only AAP's service account touches AD directly - people get delegated access to *one specific action*, not the keys to the domain |
+| "Who approved this?" means checking Slack/email/a ticket, if it was documented at all | Approval is a required step in the workflow itself - it can't be skipped, and it's logged |
+| Fixes happen by hand, so they're inconsistent between whoever's on call | Same certified module runs the same way every time |
+| Auditors ask "show me every account unlock in Q3" and someone spends a day in ticket history | It's a filtered list in AAP's job history |
+| Adding a second Windows task means writing another script, another set of creds to manage | Same platform, same credential vault, same approval pattern - the marginal cost of the next automation is small |
 
-### 1. Provision a target Windows Server
+This is a small, boring, safe operation on purpose - account unlock is easy
+to reason about and low-risk to demo live. The pattern (survey → approval →
+certified-collection execution → audit trail) is exactly what you'd reuse
+for password resets, group membership changes, computer object cleanup, or
+anything else on your AD to-do list. And it's not AD-specific - the same
+platform runs the same way against network gear, cloud infrastructure,
+Linux fleets, and (see below) Microsoft Endpoint Configuration Manager.
 
-This demo was built against a Windows Server 2022 EC2 instance with WinRM
-enabled via the official Ansible bootstrap script
-([`ConfigureRemotingForAnsible.ps1`](https://github.com/ansible/ansible-documentation/blob/devel/examples/scripts/ConfigureRemotingForAnsible.ps1))
-passed as EC2 user-data at launch. AWS's stock Windows AMIs (EC2Launch v2)
-do **not** enable WinRM by default - you must supply that script yourself.
+## What you're looking at, technically
 
-### 2. Create the machine credential (not in git, on purpose)
+- **`microsoft.ad`** - the certified collection Microsoft and Red Hat
+  maintain for AD management. This demo uses `microsoft.ad.user` with
+  `account_locked: false` to unlock the account, and
+  `microsoft.ad.domain` to stand up the lab domain controller.
+- **`ansible.windows`** - certified collection, handles the WinRM
+  connection to the Windows host.
+- **`microsoft.mecm`** - also included, wired up as a real (not stubbed)
+  job template for shops that also run Microsoft Endpoint Configuration
+  Manager. See "Extending to MECM" below.
+- **A Workflow Job Template** - AAP's term for a chain of steps. Ours has
+  two: an approval step, then the actual unlock job.
+- **A Survey** - the "form" the requester fills in (just a username field
+  here). AAP surveys can do text, passwords, multiple choice, and more.
+- **A Machine Credential** - AAP's encrypted, access-controlled way of
+  storing the Windows login it uses. Nobody who *runs* the workflow ever
+  sees this credential - they don't need domain admin rights to trigger it.
+- **Config-as-code** - the entire setup (inventory, credentials structure,
+  job templates, the workflow itself) is defined as YAML in this repo and
+  applied by one job template, not clicked together by hand. That's what
+  makes this *reusable* - you're looking at the actual definition, not a
+  screenshot.
+- All of the above resolve through **Red Hat's Automation Hub**, the
+  certified/validated content source - not the public community catalog.
+  Same content model you'd use in production.
 
-The Windows host's local Administrator password is a real secret for a real
-machine. It is **intentionally not stored in this repository**, encrypted
-or otherwise - same reason you wouldn't commit a production database
-password. Create it directly on the controller:
+## Try it yourself
 
-- Name: `AD Demo - Windows DC`
-- Type: `Machine`
-- Username / Password: the instance's Administrator credentials
+You don't need AWS specifically - any Windows Server 2022+ host you can
+reach over WinRM works, on-prem or cloud. These steps use AWS because
+that's what this build used.
 
-### 3. Run `Bootstrap - AD Demo DC` once
+### 1. Stand up a target Windows Server
 
-Promotes the host to a new AD DS forest, creates a demo user, and **really**
-locks that account out (via genuine failed logons against a lowered lockout
-threshold - not a fake flag) so there's something real to unlock live.
-Needs these extra vars at launch (also not stored in git):
+Launch a Windows Server 2022 instance with WinRM enabled. AWS's stock
+Windows AMIs don't turn WinRM on by default - pass the official Ansible
+bootstrap script,
+[`ConfigureRemotingForAnsible.ps1`](https://github.com/ansible/ansible-documentation/blob/devel/examples/scripts/ConfigureRemotingForAnsible.ps1),
+as user-data (or run it manually if you're using an existing host).
+
+### 2. Create a Machine credential in AAP
+
+In AAP: Credentials → Add → type `Machine`. Point it at the Windows host's
+local Administrator login. This is the one step that's deliberately *not*
+config-as-code - a real password for a real machine doesn't belong in a
+git repo, even encrypted.
+
+### 3. Run `Bootstrap - AD Demo DC` (one time)
+
+This job template (playbook: `playbooks/bootstrap_dc.yml`) promotes the
+host to a new AD DS forest, creates a demo user, and genuinely locks that
+account out - via real failed logon attempts against a lowered lockout
+threshold, not a fake "locked" flag - so there's something real to unlock
+later. Supply these as extra vars at launch time (also not stored in git):
 
 ```yaml
 ad_domain_name: ad-demo.local
@@ -97,38 +120,47 @@ ad_demo_user_password: <choose one>
 
 ### 4. Run `Setup - AD Demo - CAC`
 
-Applies the inventory, hosts, project, job templates, and the workflow with
-its survey and approval node.
+This applies everything else in `playbooks/files/config_as_code/` -
+inventory, hosts, job templates, and the workflow with its survey and
+approval node.
 
 ### 5. Run the demo
 
-Launch **AD Self-Service - Unlock Account**, type in `jsmith`, approve it,
-watch it unlock.
+Launch **AD Self-Service - Unlock Account**. Type `jsmith` into the survey.
+Approve it. Watch the job log confirm the account was actually locked and
+is now unlocked (`changed: true` on the unlock task - not a no-op).
 
-## Going live with MECM
+## Extending to MECM
 
-`MECM - Trigger Policy Refresh` uses `microsoft.mecm.site_ps_drive` and
-`microsoft.mecm.client_action` (`RequestMachinePolicyNow`) against a real
-Configuration Manager Primary Site Server - it has to run on that site
-server directly, since the module drives the local Configuration Manager
-PowerShell module. To wire it into the live workflow as a node after the
-unlock succeeds:
+If you also run Microsoft Endpoint Configuration Manager, the same
+platform reaches it too. `MECM - Trigger Policy Refresh` is a real job
+template using `microsoft.mecm.site_ps_drive` and
+`microsoft.mecm.client_action` to push an immediate machine policy refresh
+- a natural follow-on after an unlock, so policy changes land without
+waiting for the client's normal poll interval. It has to run directly on
+your MECM Primary Site Server (that's how the module works - it drives the
+Configuration Manager PowerShell module locally there).
 
-1. Add a host for your MECM Primary Site Server to the `mecm_site_server`
-   group in `controller_host_groups.yml`.
-2. Set `mecm_site_code`, `mecm_provider_host`, and `mecm_device_name` as
-   extra vars on the job template (or a workflow survey question).
-3. Add a `node301` entry to `controller_templates_workflow.yml` under
-   `node201`'s `success_nodes`, pointing at `MECM - Trigger Policy Refresh`.
+To wire it into the live workflow:
 
-Standing up a full MECM/SCCM site (SQL Server, Primary Site, WSUS, ADK) was
-out of scope for this demo - see the project notes if you want to take that
-on separately.
+1. Add your MECM Primary Site Server as a host in the `mecm_site_server`
+   group (`controller_host_groups.yml`).
+2. Set `mecm_site_code`, `mecm_provider_host`, and `mecm_device_name`.
+3. Add a node to `controller_templates_workflow.yml` after the unlock step,
+   pointing at `MECM - Trigger Policy Refresh`.
 
-## Security notes
+## A couple of practical notes
 
-- WinRM (5985/5986) and RDP (3389) are open broadly on this instance's
-  security group for demo convenience in an ephemeral sandbox account.
-  Tighten this before using the pattern anywhere that isn't disposable.
-- Rotate the Windows Administrator password and any AAP credentials tied to
-  this environment once the demo is retired.
+- This lab's Windows host has WinRM/RDP open broadly for demo convenience.
+  Scope that down to specific source IPs for anything beyond a throwaway
+  sandbox.
+- Rotate the demo credentials (Windows Administrator, AD safe-mode
+  password, demo user password) once you're done - none of them are
+  stored in this repository, but they're real secrets while the lab is up.
+
+## Questions
+
+Talk to your Red Hat account team about turning this into a workshop
+against your own AD environment - the pattern here (survey, approval,
+certified collection, audit trail) is the same one you'd use for the next
+ten things on your AD/Windows automation list.

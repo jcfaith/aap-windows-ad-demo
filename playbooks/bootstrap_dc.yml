@@ -50,13 +50,16 @@
       register: bad_logon_attempts
       failed_when: false
 
-    - name: Confirm the account is now locked
+    - name: Confirm the account is now locked (lockoutTime is 0 when unlocked, non-zero when locked)
       microsoft.ad.object_info:
         filter: "sAMAccountName -eq '{{ ad_demo_user_sam }}'"
         properties:
-          - LockedOut
+          - lockoutTime
       register: locked_check
 
     - name: Report lockout status
       ansible.builtin.debug:
-        msg: "{{ ad_demo_user_sam }} LockedOut = {{ locked_check.objects[0].LockedOut }}"
+        msg: >-
+          {{ ad_demo_user_sam }} is
+          {{ 'LOCKED' if locked_check.objects[0].lockoutTime | int != 0 else 'not locked' }}
+          (lockoutTime={{ locked_check.objects[0].lockoutTime }})

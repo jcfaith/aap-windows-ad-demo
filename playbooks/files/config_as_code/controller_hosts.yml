@@ -4,3 +4,7 @@ controller_hosts:
     inventory: AD Demo Inventory
     variables:
       ansible_host: 3.231.62.222
+      ansible_connection: winrm
+      ansible_port: 5986
+      ansible_winrm_transport: basic
+      ansible_winrm_server_cert_validation: ignore

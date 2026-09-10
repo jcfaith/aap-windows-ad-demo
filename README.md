@@ -1,6 +1,6 @@
 # AD Self-Service: Unlock Account, with Approval
 
-**Ansible Automation Platform (AAP) applied to a real Active Directory
+**Ansible Automation Platform (AAP) applied to an Active Directory
 operation.** This repository contains everything needed to reproduce it in
 your own environment.
 
@@ -14,7 +14,7 @@ A user calls the helpdesk: "I'm locked out."
 
 Today, that's a ticket, a queue, and eventually someone with Domain Admin
 rights typing `Unlock-ADAccount` by hand - or a shared credential sitting in
-a helpdesk runbook that nobody's rotated since 2019.
+a helpdesk runbook.
 
 **With this pattern:**
 
@@ -32,9 +32,6 @@ a helpdesk runbook that nobody's rotated since 2019.
    "who unlocked this and why" mystery three weeks later.
 
 ## Why this matters
-
-You already know how to unlock an AD account. That was never the hard part.
-The hard part is everything *around* it:
 
 | Today | With AAP |
 |---|---|

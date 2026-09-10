@@ -28,8 +28,55 @@
         account_locked: false
       register: unlock_result
 
+    # The following looks up who approved this run so the job output can
+    # confirm it by name. Requires the "AAP Credential" (Red Hat Ansible
+    # Automation Platform type) to be attached to this job template, which
+    # supplies CONTROLLER_HOST/USERNAME/PASSWORD. Only works when launched
+    # from the "AD Self-Service - Unlock Account" workflow; skipped
+    # gracefully otherwise.
+    - name: Look up this job's parent workflow job
+      delegate_to: localhost
+      ansible.builtin.uri:
+        url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}/api/controller/v2/jobs/{{ tower_job_id | default(awx_job_id) }}/"
+        user: "{{ lookup('ansible.builtin.env', 'CONTROLLER_USERNAME') }}"
+        password: "{{ lookup('ansible.builtin.env', 'CONTROLLER_PASSWORD') }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: this_job
+
+    - name: Look up the approval node on that workflow
+      delegate_to: localhost
+      ansible.builtin.uri:
+        url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}{{ this_job.json.summary_fields.source_workflow_job.url }}workflow_nodes/"
+        user: "{{ lookup('ansible.builtin.env', 'CONTROLLER_USERNAME') }}"
+        password: "{{ lookup('ansible.builtin.env', 'CONTROLLER_PASSWORD') }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: workflow_nodes
+      when: this_job.json.summary_fields.source_workflow_job is defined
+
+    - name: Fetch who approved the approval node
+      delegate_to: localhost
+      vars:
+        approval_node: >-
+          {{ workflow_nodes.json.results
+             | selectattr('summary_fields.job.type', 'defined')
+             | selectattr('summary_fields.job.type', 'equalto', 'workflow_approval')
+             | first }}
+      ansible.builtin.uri:
+        url: "{{ lookup('ansible.builtin.env', 'CONTROLLER_HOST') }}/api/controller/v2/workflow_approvals/{{ approval_node.summary_fields.job.id }}/"
+        user: "{{ lookup('ansible.builtin.env', 'CONTROLLER_USERNAME') }}"
+        password: "{{ lookup('ansible.builtin.env', 'CONTROLLER_PASSWORD') }}"
+        force_basic_auth: true
+        validate_certs: false
+      register: approval_detail
+      when: workflow_nodes is defined and workflow_nodes.json is defined
+
     - name: Report result
+      vars:
+        approver: "{{ approval_detail.json.summary_fields.approved_or_denied_by.username | default('') if approval_detail is defined and approval_detail.json is defined else '' }}"
       ansible.builtin.debug:
         msg: >-
           {{ ad_username }} was
           {{ 'unlocked' if unlock_result.changed else 'already unlocked (no change needed)' }}.
+          {{ (ad_username ~ ' is now unlocked - approved by ' ~ approver ~ '.') if approver else '' }}

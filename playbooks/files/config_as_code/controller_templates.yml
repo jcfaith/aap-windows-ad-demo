@@ -25,13 +25,15 @@ controller_templates:
     inventory: AD Demo Inventory
     credentials:
       - "AD Demo - Windows DC"
+      - "AAP Credential"
     job_type: run
     ask_variables_on_launch: true
     become_enabled: false
     description: >-
       Unlocks a locked-out AD user account. Expects ad_username as an extra
       var - normally supplied by the "AD Self-Service - Unlock Account"
-      workflow's survey, one node after manager approval.
+      workflow's survey, one node after manager approval. Also attaches the
+      "AAP Credential" so the job can look up and report who approved it.
 
   - name: "Reset Demo - Lock jsmith"
     organization: Default

@@ -33,6 +33,21 @@ controller_templates:
       var - normally supplied by the "AD Self-Service - Unlock Account"
       workflow's survey, one node after manager approval.
 
+  - name: "Reset Demo - Lock jsmith"
+    organization: Default
+    project: aap-windows-ad-demo
+    playbook: playbooks/relock_demo_user.yml
+    inventory: AD Demo Inventory
+    credentials:
+      - "AD Demo - Windows DC"
+    job_type: run
+    ask_variables_on_launch: false
+    become_enabled: false
+    description: >-
+      Run this between demos to re-lock jsmith so "AD Self-Service - Unlock
+      Account" has something real to unlock again. No extra vars needed -
+      defaults to ADDEMO\jsmith.
+
   - name: "MECM - Trigger Policy Refresh (optional)"
     organization: Default
     project: aap-windows-ad-demo

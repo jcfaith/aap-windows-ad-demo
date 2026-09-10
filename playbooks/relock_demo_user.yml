@@ -1,0 +1,37 @@
+---
+# Resets the demo for reuse: re-locks the demo AD account via real failed
+# logons against a lowered lockout threshold, same mechanism
+# bootstrap_dc.yml uses the first time. Run this between demo runs so
+# "AD Self-Service - Unlock Account" has something real to unlock again.
+- name: Re-lock the demo AD user account
+  hosts: ad_domain_controllers
+  gather_facts: false
+
+  vars:
+    ad_domain_netbios_name: ADDEMO
+    ad_demo_user_sam: jsmith
+
+  tasks:
+    - name: Lower the domain lockout threshold so a few bad logons trigger a real lockout
+      ansible.windows.win_command: net accounts /lockoutthreshold:3 /domain
+
+    - name: Trigger a genuine account lockout with deliberate failed logons
+      ansible.windows.win_command: >-
+        net use \\localhost\ipc$ /user:{{ ad_domain_netbios_name }}\{{ ad_demo_user_sam }} wrong-password-{{ item }}
+      loop: "{{ range(1, 5) | list }}"
+      register: bad_logon_attempts
+      failed_when: false
+
+    - name: Confirm the account is now locked (lockoutTime is 0 when unlocked, non-zero when locked)
+      microsoft.ad.object_info:
+        filter: "sAMAccountName -eq '{{ ad_demo_user_sam }}'"
+        properties:
+          - lockoutTime
+      register: locked_check
+
+    - name: Report lockout status
+      ansible.builtin.debug:
+        msg: >-
+          {{ ad_demo_user_sam }} is
+          {{ 'LOCKED' if locked_check.objects[0].lockoutTime | int != 0 else 'not locked' }}
+          (lockoutTime={{ locked_check.objects[0].lockoutTime }})

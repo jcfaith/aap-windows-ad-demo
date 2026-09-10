@@ -24,18 +24,18 @@ controller_workflows:
     ask_variables_on_launch: false
     allow_simultaneous: true
     workflow_nodes:
-      - identifier: node101
+      - identifier: manager_approval
         unified_job_template: null
         approval_node:
           name: "Manager approval"
           description: "Approve unlocking this AD account"
           timeout: 3600
         success_nodes:
-          - node201
+          - unlock_ad_account
         failure_nodes: []
         always_nodes: []
 
-      - identifier: node201
+      - identifier: unlock_ad_account
         unified_job_template: "Unlock AD User Account"
         organization: Default
         success_nodes: []
